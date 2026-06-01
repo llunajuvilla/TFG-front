@@ -1,15 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// Estructura adaptada a tu ImuFrame del ESP32
 export interface SensorData {
   timestamp: number;
   accelerometer: { x: number; y: number; z: number };
   gyroscope: { x: number; y: number; z: number };
-  angles: {
-    acc: number;
-    gyroRaw: number;
-    kalman: number;
-  };
+  angles: { acc: number; gyroRaw: number; kalman: number; };
   biasG: number;
 }
 
@@ -17,26 +12,44 @@ export function useRobotWebSocket(ipAddress: string) {
   const [isConnected, setIsConnected] = useState(false);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
+  const connect = useCallback(() => {
     if (!ipAddress) return;
 
-    // Tu código Arduino inicia el WebSocket en el puerto 81 [cite: 36]
-    const wsUrl = `ws://${ipAddress}:81`;
-    const ws = new WebSocket(wsUrl);
-    
+    // Si ya hay uno abierto, lo cerramos antes de abrir otro
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    const ws = new WebSocket(`ws://${ipAddress}:81`);
     ws.binaryType = 'arraybuffer';
 
-    ws.onopen = () => setIsConnected(true);
-    ws.onclose = () => setIsConnected(false);
-    ws.onerror = (error) => console.error("Error WebSocket:", error);
+    ws.onopen = () => {
+      setIsConnected(true);
+      console.log("Connectat al robot");
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    };
+
+    ws.onclose = () => {
+      setIsConnected(false);
+      console.log("Connexió perduda. Intentant reconnectar en 3 segons...");
+      
+      // AUTO-RECONEXIÓN MAGICA:
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connect();
+      }, 3000);
+    };
+
+    ws.onerror = (error) => {
+      // Un error suele ir seguido de un close, forzamos el close para auto-reconnectar
+      ws.close(); 
+    };
 
     ws.onmessage = (event) => {
       if (event.data instanceof ArrayBuffer) {
-        // Comprobamos el tamaño del paquete recibido
         const byteLength = event.data.byteLength;
         
-        // Si el paquete es de 44 bytes (el que esperamos de IMUWIFI.ino)
         if (byteLength === 44) {
           const view = new DataView(event.data);
           setSensorData({
@@ -58,46 +71,29 @@ export function useRobotWebSocket(ipAddress: string) {
             },
             biasG: view.getFloat32(40, true)
           });
-        } 
-        // Si el paquete es de 28 bytes
-        else if (byteLength === 28) {
-          const view = new DataView(event.data);
-          setSensorData({
-            timestamp: view.getUint32(0, true),
-            accelerometer: {
-              x: view.getFloat32(4, true),
-              y: view.getFloat32(8, true),
-              z: view.getFloat32(12, true),
-            },
-            gyroscope: {
-              x: view.getFloat32(16, true),
-              y: view.getFloat32(20, true),
-              z: view.getFloat32(24, true),
-            },
-            // Como no tenemos ángulos en este paquete antiguo, ponemos 0
-            angles: { acc: 0, gyroRaw: 0, kalman: 0 },
-            biasG: 0
-          });
-        } else {
-          console.warn(`Paquete recibido con tamaño inesperado: ${byteLength} bytes.`);
         }
       }
     };
 
     wsRef.current = ws;
-
-    // Limpieza al desmontar el componente
-    return () => {
-      ws.close();
-    };
   }, [ipAddress]);
 
-  // Función para enviar comandos en JSON al ESP32
+  useEffect(() => {
+    connect();
+
+    return () => {
+      // Limpieza profunda al desmontar
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // Evita que salte la reconexión si cerramos la página a propósito
+        wsRef.current.close();
+      }
+    };
+  }, [connect]);
+
   const sendCommand = useCallback((command: object) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(command));
-    } else {
-      console.warn("WebSocket no está conectado. Comando ignorado.");
     }
   }, []);
 

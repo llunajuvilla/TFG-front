@@ -65,9 +65,13 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
             {/* Row 1: Up arrow */}
             <div />
             <button
-              onClick={() => handleDirection("forward")}
+              onMouseDown={() => handleDirection("forward")}
+              onMouseUp={() => handleDirection("stop")}
+              onMouseLeave={() => handleDirection("stop")} // Por si arrastras el ratón fuera
+              onTouchStart={() => handleDirection("forward")}
+              onTouchEnd={() => handleDirection("stop")}
               disabled={!isManualActive}
-              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none touch-none"
               aria-label="Forward"
             >
               <svg viewBox="0 0 40 40" className="w-10 h-10">
@@ -78,9 +82,13 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
             
             {/* Row 2: Left, Stop, Right */}
             <button
-              onClick={() => handleDirection("left")}
+              onMouseDown={() => handleDirection("left")}
+              onMouseUp={() => handleDirection("stop")}
+              onMouseLeave={() => handleDirection("stop")}
+              onTouchStart={() => handleDirection("left")}
+              onTouchEnd={() => handleDirection("stop")}
               disabled={!isManualActive}
-              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none touch-none"
               aria-label="Left"
             >
               <svg viewBox="0 0 40 40" className="w-10 h-10">
@@ -88,17 +96,21 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
               </svg>
             </button>
             <button
-              onClick={() => handleDirection("stop")}
+              onClick={() => handleDirection("stop")} // Stop explícito por si acaso
               disabled={!isManualActive}
-              className="w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center text-white text-xs font-bold disabled:opacity-40 disabled:hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center text-white text-xs font-bold disabled:opacity-40 disabled:hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 select-none touch-none"
               aria-label="Stop"
             >
               Stop
             </button>
             <button
-              onClick={() => handleDirection("right")}
+              onMouseDown={() => handleDirection("right")}
+              onMouseUp={() => handleDirection("stop")}
+              onMouseLeave={() => handleDirection("stop")}
+              onTouchStart={() => handleDirection("right")}
+              onTouchEnd={() => handleDirection("stop")}
               disabled={!isManualActive}
-              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none touch-none"
               aria-label="Right"
             >
               <svg viewBox="0 0 40 40" className="w-10 h-10">
@@ -109,9 +121,13 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
             {/* Row 3: Down arrow */}
             <div />
             <button
-              onClick={() => handleDirection("backward")}
+              onMouseDown={() => handleDirection("backward")}
+              onMouseUp={() => handleDirection("stop")}
+              onMouseLeave={() => handleDirection("stop")}
+              onTouchStart={() => handleDirection("backward")}
+              onTouchEnd={() => handleDirection("stop")}
               disabled={!isManualActive}
-              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-10 h-10 flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none touch-none"
               aria-label="Backward"
             >
               <svg viewBox="0 0 40 40" className="w-10 h-10">

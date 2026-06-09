@@ -1,31 +1,32 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRobotWebSocket, SensorData } from "@/hooks/useRobotWebSocket"
+import { useRobotWebSocket } from "@/hooks/useRobotWebSocket"
 
-import { ControlPanel } from "@/components/control-panel"
-import { Robot3DView } from "@/components/robot-3d-view"
-import { MPUSensor } from "@/components/mpu-sensor"
-import { RobotMap } from "@/components/robot-map"
+import { ControlPanel }      from "@/components/control-panel"
+import { Robot3DView }       from "@/components/robot-3d-view"
+import { MPUSensor }         from "@/components/mpu-sensor"
+import { RobotMap }          from "@/components/robot-map"
 import { KalmanFilterChart } from "@/components/kalman-filter-chart"
 
 // ── Tipus per al gràfic de Kalman ──
 interface KalmanSample {
-  time: number;  // s
-  pitch_raw: number;  // °
+  time:         number;  // s
+  pitch_raw:    number;  // °
   pitch_kalman: number;  // °
-  yaw_raw: number;  // °
-  yaw_kalman: number;  // °
+  yaw_raw:      number;  // °
+  yaw_kalman:   number;  // °
 }
 
 const MAX_CHART_SAMPLES = 60  // últims 60 punts (~6 s a 10 Hz)
 
 export default function RobotDashboard() {
   const [isMounted, setIsMounted] = useState(false)
-  const [mode, setMode] = useState<"manual" | "auto">("manual")
-  const [messages, setMessages] = useState(["Esperant connexió…"])
+  // El mode es sincronitza des del ESP32 via JSON; inicialment "manual"
+  const [mode, setMode]           = useState<"manual" | "auto">("manual")
+  const [messages, setMessages]   = useState(["Esperant connexió…"])
   const [chartData, setChartData] = useState<KalmanSample[]>([])
-  const chartTimeRef = useRef(0)
+  const chartTimeRef              = useRef<number | null>(null)  // timestamp del primer frame (ms)
 
   const ESP32_IP = "192.168.1.15"
   const { isConnected, sensorData, robotMode, sendCommand } = useRobotWebSocket(ESP32_IP)
@@ -42,20 +43,22 @@ export default function RobotDashboard() {
   // Acumula mostres per al gràfic cada vegada que arriba un frame nou
   useEffect(() => {
     if (!sensorData) return
-    chartTimeRef.current += 0.1   // ~10 Hz (varia en funció de telemetry_rate_hz)
+    // Usem el timestamp real del robot (ms) per calcular el temps relatiu en segons
+    if (chartTimeRef.current === null) chartTimeRef.current = sensorData.timestamp
+    const tSec = parseFloat(((sensorData.timestamp - chartTimeRef.current) / 1000).toFixed(2))
     const sample: KalmanSample = {
-      time: parseFloat(chartTimeRef.current.toFixed(1)),
-      pitch_raw: parseFloat(sensorData.pitch.gyro.toFixed(2)),
+      time:         tSec,
+      pitch_raw:    parseFloat(sensorData.pitch.gyro.toFixed(2)),
       pitch_kalman: parseFloat(sensorData.pitch.kalman.toFixed(2)),
-      yaw_raw: parseFloat(sensorData.yaw.gyro.toFixed(2)),
-      yaw_kalman: parseFloat(sensorData.yaw.kalman.toFixed(2)),
+      yaw_raw:      parseFloat(sensorData.yaw.gyro.toFixed(2)),
+      yaw_kalman:   parseFloat(sensorData.yaw.kalman.toFixed(2)),
     }
     setChartData(prev => [...prev.slice(-MAX_CHART_SAMPLES + 1), sample])
   }, [sensorData])
 
   // ── Canvi de mode ──
-  // El robot espera: { cmd: "mode", value: "auto" | "manual" }
-  const handleModeChange = (newMode: "manual" | "auto") => {
+  const handleModeChange = (newMode: "manual" | "auto" | "return") => {
+    if (newMode === "return") return   // no implementat al firmware encara
     sendCommand({ cmd: "mode", value: newMode })
     setMessages(prev => [`Canviant mode a: ${newMode}`, ...prev.slice(0, 2)])
     // No actualitzem `mode` aquí; esperem la confirmació del robot via JSON
@@ -69,7 +72,7 @@ export default function RobotDashboard() {
   }
 
   // ── Reset d'angles / posició ──
-  const handleResetAngle = () => sendCommand({ cmd: "reset_angle" })
+  const handleResetAngle    = () => sendCommand({ cmd: "reset_angle" })
   const handleResetPosition = () => {
     sendCommand({ cmd: "reset_position" })
     setMessages(prev => ["Posició i angles resetejats", ...prev.slice(0, 2)])
@@ -77,20 +80,20 @@ export default function RobotDashboard() {
 
   // ── Valors segurs quan el WebSocket no ha rebut dades ──
   const gyro = sensorData?.gyroscope ?? { x: 0, y: 0, z: 0 }
-  const acc = sensorData?.accelerometer ?? { x: 0, y: 0, z: 0 }
+  const acc  = sensorData?.accelerometer ?? { x: 0, y: 0, z: 0 }
 
   // Rotació 3D:
   //  - pitch (cabeceo) = pitch_kalman  → eix X del CSS (rotateX)
   //  - yaw   (gir)     = yaw_kalman   → eix Y del CSS (rotateY)
   const robotRotation = {
     x: sensorData?.pitch.kalman ?? 0,
-    y: sensorData?.yaw.kalman ?? 0,
+    y: sensorData?.yaw.kalman   ?? 0,
     z: 0,
   }
 
   // Posició del mapa en metres (calculada per odometria + Kalman al robot)
   const robotPosition = sensorData?.position ?? { x: 0, y: 0 }
-  const robotYaw = sensorData?.yaw.kalman ?? 0
+  const robotYaw      = sensorData?.yaw.kalman ?? 0
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 transition-colors duration-300">

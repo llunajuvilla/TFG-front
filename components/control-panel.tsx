@@ -1,26 +1,39 @@
 "use client"
 
 import { useState } from "react"
-
-type Mode = "manual" | "automatic" | "return"
+type Mode = "manual" | "auto" | "return"
 type Direction = "forward" | "backward" | "left" | "right" | "stop"
 
 interface ControlPanelProps {
   onModeChange?: (mode: Mode) => void
   onDirectionCommand?: (direction: Direction) => void
+  onResetAngle?: () => void
+  onResetPosition?: () => void
   messages?: string[]
+  currentMode?: "manual" | "auto"
 }
 
-export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }: ControlPanelProps) {
+export function ControlPanel({
+  onModeChange,
+  onDirectionCommand,
+  onResetAngle,
+  onResetPosition,
+  messages = [],
+  currentMode,
+}: ControlPanelProps) {
   const [isAutomatic, setIsAutomatic] = useState(false)
   const [isReturn, setIsReturn] = useState(false)
+
+  // Si el robot confirma el mode externament, sincronitza els checkboxes
+  const effectiveAuto = currentMode !== undefined ? currentMode === "auto" : isAutomatic
+  const effectiveReturn = currentMode !== undefined ? false : isReturn
 
   const handleAutomaticChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked
     setIsAutomatic(checked)
     if (checked) {
       setIsReturn(false)
-      onModeChange?.("automatic")
+      onModeChange?.("auto")
     } else if (!isReturn) {
       onModeChange?.("manual")
     }
@@ -41,7 +54,7 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
     onDirectionCommand?.(direction)
   }
 
-  const isManualActive = !isAutomatic && !isReturn
+  const isManualActive = !effectiveAuto && !effectiveReturn
 
   const defaultMessages = [
     "Cap endavant..",
@@ -59,15 +72,16 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
         </h3>
       </div>
       <div className="p-6 pt-0 space-y-4">
-        {/* Directional controls - always visible */}
+
+        {/* Directional controls */}
         <div className="flex flex-col items-center py-2">
           <div className="grid grid-cols-3 gap-1 w-fit">
-            {/* Row 1: Up arrow */}
+            {/* Row 1: Up */}
             <div />
             <button
               onMouseDown={() => handleDirection("forward")}
               onMouseUp={() => handleDirection("stop")}
-              onMouseLeave={() => handleDirection("stop")} // Por si arrastras el ratón fuera
+              onMouseLeave={() => handleDirection("stop")}
               onTouchStart={() => handleDirection("forward")}
               onTouchEnd={() => handleDirection("stop")}
               disabled={!isManualActive}
@@ -79,7 +93,7 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
               </svg>
             </button>
             <div />
-            
+
             {/* Row 2: Left, Stop, Right */}
             <button
               onMouseDown={() => handleDirection("left")}
@@ -96,7 +110,7 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
               </svg>
             </button>
             <button
-              onClick={() => handleDirection("stop")} // Stop explícito por si acaso
+              onClick={() => handleDirection("stop")}
               disabled={!isManualActive}
               className="w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center text-white text-xs font-bold disabled:opacity-40 disabled:hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 select-none touch-none"
               aria-label="Stop"
@@ -117,8 +131,8 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
                 <polygon points="35,20 5,5 12,20 5,35" fill="#d1d5db" />
               </svg>
             </button>
-            
-            {/* Row 3: Down arrow */}
+
+            {/* Row 3: Down */}
             <div />
             <button
               onMouseDown={() => handleDirection("backward")}
@@ -144,12 +158,12 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
             <input
               type="checkbox"
               id="automatic"
-              checked={isAutomatic}
+              checked={effectiveAuto}
               onChange={handleAutomaticChange}
               className="peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 accent-black dark:accent-white"
             />
-            <label 
-              htmlFor="automatic" 
+            <label
+              htmlFor="automatic"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
             >
               Automàtic
@@ -159,12 +173,12 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
             <input
               type="checkbox"
               id="return"
-              checked={isReturn}
+              checked={effectiveReturn}
               onChange={handleReturnChange}
               className="peer h-4 w-4 shrink-0 rounded-sm border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 accent-black dark:accent-white"
             />
-            <label 
-              htmlFor="return" 
+            <label
+              htmlFor="return"
               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
             >
               Retorn
@@ -172,6 +186,7 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
           </div>
         </div>
 
+        {/* Log de missatges */}
         <div>
           <p className="text-sm font-medium mb-2">Informació:</p>
           <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
@@ -180,6 +195,29 @@ export function ControlPanel({ onModeChange, onDirectionCommand, messages = [] }
             ))}
           </div>
         </div>
+
+        {/* Botons de reset — apareixen només si es passen les props */}
+        {(onResetAngle || onResetPosition) && (
+          <div className="flex gap-2 pt-1 border-t border-gray-100 dark:border-gray-800">
+            {onResetAngle && (
+              <button
+                onClick={onResetAngle}
+                className="flex-1 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Reset angles
+              </button>
+            )}
+            {onResetPosition && (
+              <button
+                onClick={onResetPosition}
+                className="flex-1 py-1.5 text-xs rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Reset posició
+              </button>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   )

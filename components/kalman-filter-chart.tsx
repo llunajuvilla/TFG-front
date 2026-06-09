@@ -1,31 +1,35 @@
 "use client"
 
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts"
+import type { ValueType, NameType } from "recharts/types/component/DefaultTooltipContent"
 
 interface KalmanSample {
-  time:         number
-  pitch_raw:    number
+  time: number
+  pitch_raw: number
   pitch_kalman: number
-  yaw_raw:      number
-  yaw_kalman:   number
+  yaw_raw: number
+  yaw_kalman: number
 }
 
 interface KalmanFilterChartProps {
   data?: KalmanSample[]
 }
 
-// Dades d'exemple per quan el WebSocket no está connectat
+// Dades d'exemple deterministes — sense Math.random() per evitar
+// l'error d'hidratació SSR/CSR de Next.js
+const NOISE = [1.2, -0.8, 1.5, -1.1, 0.6, -1.4, 1.8, -0.5, 1.3, -0.9,
+               0.7, -1.6, 1.1, -0.4, 1.7, -1.2, 0.9, -0.7, 1.4, -1.0]
 const DEMO_DATA: KalmanSample[] = Array.from({ length: 20 }, (_, i) => ({
-  time:         i * 0.5,
-  pitch_raw:    Math.sin(i * 0.4) * 8 + (Math.random() - 0.5) * 4,
-  pitch_kalman: Math.sin(i * 0.4) * 7.5,
-  yaw_raw:      i * 2.1 + (Math.random() - 0.5) * 3,
-  yaw_kalman:   i * 2.0,
+  time:         parseFloat((i * 0.5).toFixed(1)),
+  pitch_raw:    parseFloat((Math.sin(i * 0.4) * 8 + NOISE[i] * 2).toFixed(2)),
+  pitch_kalman: parseFloat((Math.sin(i * 0.4) * 7.5).toFixed(2)),
+  yaw_raw:      parseFloat((i * 2.1 + NOISE[i] * 1.5).toFixed(2)),
+  yaw_kalman:   parseFloat((i * 2.0).toFixed(2)),
 }))
 
 export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
   const chartData = (data && data.length > 0) ? data : DEMO_DATA
-  const isLive    = data && data.length > 0
+  const isLive = data && data.length > 0
 
   return (
     <div className="h-full rounded-xl border bg-white dark:bg-gray-950 dark:border-gray-800 shadow-sm">
@@ -79,12 +83,14 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
               />
               <Tooltip
                 contentStyle={{ fontSize: "11px", padding: "4px 8px" }}
-                formatter={(value: number, name: string) => [
-                  `${value.toFixed(2)}°`,
-                  name === "pitch_raw"    ? "Pitch brut"    :
-                  name === "pitch_kalman" ? "Pitch Kalman"  :
-                  name === "yaw_raw"      ? "Yaw brut"      : "Yaw Kalman",
-                ]}
+                formatter={(value: ValueType | undefined, name: NameType | undefined) => {
+                  if (value === undefined || value === null) return ["—", String(name ?? "")]
+                  const label =
+                    name === "pitch_raw"    ? "Pitch brut"   :
+                    name === "pitch_kalman" ? "Pitch Kalman" :
+                    name === "yaw_raw"      ? "Yaw brut"     : "Yaw Kalman"
+                  return [`${Number(value).toFixed(2)}°`, label]
+                }}
                 labelFormatter={(t) => `t = ${t} s`}
               />
 
@@ -106,7 +112,6 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
                 dot={false}
                 isAnimationActive={false}
               />
-
               {/* Yaw brut */}
               <Line
                 type="monotone"

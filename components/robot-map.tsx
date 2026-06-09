@@ -1,109 +1,159 @@
 "use client"
 
-interface Obstacle {
-  x: number
-  y: number
-}
+import { useRef, useEffect } from "react"
 
 interface RobotMapProps {
-  robotPosition?: { x: number; y: number; rotation: number }
-  obstacles?: Obstacle[]
-  temperature?: number
-  humidity?: number
+  position?: { x: number; y: number }   // metres (de la odometria del robot)
+  yawDeg?:   number                      // ° (yaw_kalman del robot)
+  encoders?: { left: number; right: number }
 }
 
+const MAP_SIZE_M  = 3.0   // metres que representa cada meitat del mapa
+const TRAIL_MAX   = 200   // màxim de punts del rastre
+
 export function RobotMap({
-  robotPosition = { x: 120, y: 80, rotation: 25 },
-  obstacles = [
-    { x: 80, y: 60 },
-    { x: 180, y: 55 }
-  ],
-  temperature = 23,
-  humidity = 45.2
+  position = { x: 0, y: 0 },
+  yawDeg   = 0,
+  encoders,
 }: RobotMapProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const trailRef  = useRef<Array<{ x: number; y: number }>>([])
+
+  // Acumula el rastre
+  useEffect(() => {
+    trailRef.current.push({ ...position })
+    if (trailRef.current.length > TRAIL_MAX) {
+      trailRef.current.shift()
+    }
+  }, [position])
+
+  // Dibuixa cada vegada que canvia la posició o el yaw
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx    = canvas.getContext("2d")
+    if (!ctx) return
+
+    const W = canvas.width
+    const H = canvas.height
+    const cx = W / 2
+    const cy = H / 2
+
+    // Metres → píxels
+    const scale = (W / 2) / MAP_SIZE_M
+
+    const toCanvas = (mx: number, my: number) => ({
+      px: cx + mx * scale,
+      py: cy - my * scale,  // y invertit (pantalla cap avall)
+    })
+
+    // ── Fons ──
+    ctx.clearRect(0, 0, W, H)
+    ctx.fillStyle = "#f9fafb"
+    ctx.fillRect(0, 0, W, H)
+
+    // ── Graella ──
+    ctx.strokeStyle = "#e5e7eb"
+    ctx.lineWidth   = 1
+    const step = scale * 0.5  // línia cada 0,5 m
+    for (let x = cx % step; x < W; x += step) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke()
+    }
+    for (let y = cy % step; y < H; y += step) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke()
+    }
+
+    // ── Eixos ──
+    ctx.strokeStyle = "#d1d5db"
+    ctx.lineWidth   = 1.5
+    ctx.beginPath(); ctx.moveTo(cx, 0); ctx.lineTo(cx, H); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke()
+
+    // ── Etiquetes de distància ──
+    ctx.fillStyle  = "#9ca3af"
+    ctx.font       = "9px monospace"
+    ctx.textAlign  = "center"
+    for (let m = 0.5; m < MAP_SIZE_M; m += 0.5) {
+      const { px } = toCanvas(m, 0)
+      ctx.fillText(`${m}m`, px, cy + 10)
+    }
+
+    // ── Rastre ──
+    const trail = trailRef.current
+    if (trail.length > 1) {
+      ctx.beginPath()
+      ctx.strokeStyle = "#93c5fd"
+      ctx.lineWidth   = 1.5
+      ctx.setLineDash([3, 3])
+      const start = toCanvas(trail[0].x, trail[0].y)
+      ctx.moveTo(start.px, start.py)
+      for (let i = 1; i < trail.length; i++) {
+        const p = toCanvas(trail[i].x, trail[i].y)
+        ctx.lineTo(p.px, p.py)
+      }
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
+
+    // ── Robot ──
+    const { px, py } = toCanvas(position.x, position.y)
+    const yawRad     = (yawDeg * Math.PI) / 180
+
+    ctx.save()
+    ctx.translate(px, py)
+    ctx.rotate(-yawRad)  // CSS: y-axis invertit
+
+    // Cos del robot
+    ctx.fillStyle   = "#1e293b"
+    ctx.strokeStyle = "#475569"
+    ctx.lineWidth   = 1
+    ctx.beginPath()
+    ctx.roundRect(-8, -12, 16, 24, 3)
+    ctx.fill()
+    ctx.stroke()
+
+    // Fletxa de direcció (frontal)
+    ctx.fillStyle = "#f59e0b"
+    ctx.beginPath()
+    ctx.moveTo(0, -16)
+    ctx.lineTo(-5, -10)
+    ctx.lineTo(5, -10)
+    ctx.closePath()
+    ctx.fill()
+
+    ctx.restore()
+
+    // ── Coordenades actuals ──
+    ctx.fillStyle = "#6b7280"
+    ctx.font      = "10px monospace"
+    ctx.textAlign = "left"
+    ctx.fillText(`x: ${position.x.toFixed(2)} m`, 6, H - 22)
+    ctx.fillText(`y: ${position.y.toFixed(2)} m`, 6, H - 10)
+
+  }, [position, yawDeg])
+
   return (
     <div className="h-full rounded-xl border bg-white dark:bg-gray-950 dark:border-gray-800 shadow-sm">
       <div className="flex flex-col space-y-1.5 p-6 pb-2">
-        <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 leading-none tracking-tight">
-          Mapa
-        </h3>
-      </div>
-      <div className="p-6 pt-0">
-        <div className="relative">
-          {/* Map container with axes */}
-          <div className="flex">
-            {/* Y-axis label */}
-            <div className="flex flex-col justify-center pr-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400">x</span>
-            </div>
-            
-            {/* Map area */}
-            <div className="relative w-full h-40 border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden">
-              {/* Obstacles */}
-              {obstacles.map((obstacle, index) => (
-                <div
-                  key={index}
-                  className="absolute w-4 h-4 bg-red-500 rounded-full shadow-sm"
-                  style={{
-                    left: `${(obstacle.x / 250) * 100}%`,
-                    top: `${(obstacle.y / 120) * 100}%`,
-                    transform: "translate(-50%, -50%)"
-                  }}
-                />
-              ))}
-              
-              {/* Robot */}
-              <div
-                className="absolute transition-all duration-300"
-                style={{
-                  left: `${(robotPosition.x / 250) * 100}%`,
-                  top: `${(robotPosition.y / 120) * 100}%`,
-                  transform: `translate(-50%, -50%) rotate(${robotPosition.rotation}deg)`
-                }}
-              >
-                {/* Robot body */}
-                <div className="w-10 h-6 bg-gray-400 rounded-sm relative shadow-sm">
-                  {/* Direction indicator */}
-                  <div 
-                    className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-0 h-0"
-                    style={{
-                      borderTop: "5px solid transparent",
-                      borderBottom: "5px solid transparent",
-                      borderLeft: "8px solid #374151"
-                    }}
-                  />
-                  {/* Wheels */}
-                  <div className="absolute -bottom-0.5 left-0.5 w-2 h-1 bg-gray-600 rounded-sm" />
-                  <div className="absolute -bottom-0.5 right-2 w-2 h-1 bg-gray-600 rounded-sm" />
-                  <div className="absolute -top-0.5 left-0.5 w-2 h-1 bg-gray-600 rounded-sm" />
-                  <div className="absolute -top-0.5 right-2 w-2 h-1 bg-gray-600 rounded-sm" />
-                </div>
-              </div>
-              
-              {/* Coordinates indicator */}
-              <div className="absolute bottom-1 right-1 text-xs text-gray-500 dark:text-gray-400 bg-white/80 dark:bg-black/80 px-1 rounded">
-                (x,y)
-              </div>
-            </div>
-          </div>
-          
-          {/* X-axis label */}
-          <div className="text-center mt-1">
-            <span className="text-xs text-gray-500 dark:text-gray-400">y</span>
-          </div>
-          
-          {/* Legend and environmental data */}
-          <div className="mt-3 flex justify-between items-start">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 bg-red-500 rounded-full" />
-              <span className="text-xs text-red-500 font-medium">Obstacles</span>
-            </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-right font-mono">
-              <p>Temperatura: {temperature}ºC</p>
-              <p>Humitat: {humidity}%</p>
-            </div>
-          </div>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-red-500 dark:text-red-400 uppercase tracking-wide">
+            Mapa Odometria
+          </h3>
+          {encoders && (
+            <span className="text-xs font-mono text-gray-400 dark:text-gray-500">
+              L: {encoders.left} | R: {encoders.right}
+            </span>
+          )}
         </div>
+      </div>
+
+      <div className="p-6 pt-0 flex justify-center">
+        <canvas
+          ref={canvasRef}
+          width={280}
+          height={220}
+          className="rounded-lg border border-gray-100 dark:border-gray-800"
+        />
       </div>
     </div>
   )

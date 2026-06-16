@@ -5,6 +5,7 @@ import type { ValueType, NameType } from "recharts/types/component/DefaultToolti
 
 interface KalmanSample {
   time: number
+  pitch_acc: number
   pitch_raw: number
   pitch_kalman: number
   yaw_raw: number
@@ -21,7 +22,8 @@ const NOISE = [1.2, -0.8, 1.5, -1.1, 0.6, -1.4, 1.8, -0.5, 1.3, -0.9,
                0.7, -1.6, 1.1, -0.4, 1.7, -1.2, 0.9, -0.7, 1.4, -1.0]
 const DEMO_DATA: KalmanSample[] = Array.from({ length: 20 }, (_, i) => ({
   time:         parseFloat((i * 0.5).toFixed(1)),
-  pitch_raw:    parseFloat((Math.sin(i * 0.4) * 8 + NOISE[i] * 2).toFixed(2)),
+  pitch_acc:    parseFloat((Math.sin(i * 0.4) * 8 + NOISE[i] * 2.5).toFixed(2)),
+  pitch_raw:    parseFloat((Math.sin(i * 0.4) * 8 + i * 0.8).toFixed(2)),
   pitch_kalman: parseFloat((Math.sin(i * 0.4) * 7.5).toFixed(2)),
   yaw_raw:      parseFloat((i * 2.1 + NOISE[i] * 1.5).toFixed(2)),
   yaw_kalman:   parseFloat((i * 2.0).toFixed(2)),
@@ -54,13 +56,16 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
         {/* Llegenda manual amb colors clars */}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 pt-1">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-4 h-0.5 bg-blue-400" />  Pitch brut
+            <span className="inline-block w-4 h-0.5 bg-violet-400" />  Pitch acc.
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-4 h-0.5 bg-blue-400" />  Pitch giroscopi
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-4 h-0.5 bg-blue-600 border-dashed border-t-2 border-blue-600" />  Pitch Kalman
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-4 h-0.5 bg-orange-400" />  Yaw brut
+            <span className="inline-block w-4 h-0.5 bg-orange-400" />  Yaw giroscopi
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-4 h-0.5 bg-orange-600 border-dashed border-t-2 border-orange-600" />  Yaw Kalman
@@ -86,15 +91,24 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
                 formatter={(value: ValueType | undefined, name: NameType | undefined) => {
                   if (value === undefined || value === null) return ["—", String(name ?? "")]
                   const label =
-                    name === "pitch_raw"    ? "Pitch brut"   :
+                    name === "pitch_raw"    ? "Pitch giroscopi"   :
                     name === "pitch_kalman" ? "Pitch Kalman" :
-                    name === "yaw_raw"      ? "Yaw brut"     : "Yaw Kalman"
+                    name === "yaw_raw"      ? "Yaw giroscopi"     : "Yaw Kalman"
                   return [`${Number(value).toFixed(2)}°`, label]
                 }}
                 labelFormatter={(t) => `t = ${t} s`}
               />
+              {/* Pitch acceleròmetre — referència sorollosa */}
+              <Line
+                type="monotone"
+                dataKey="pitch_acc"
+                stroke="#a78bfa"
+                strokeWidth={1}
+                dot={false}
+                isAnimationActive={false}
+              />
 
-              {/* Pitch brut — línia fina i translúcida */}
+              {/* Pitch giroscopi — línia fina i translúcida */}
               <Line
                 type="monotone"
                 dataKey="pitch_raw"
@@ -112,7 +126,7 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
                 dot={false}
                 isAnimationActive={false}
               />
-              {/* Yaw brut */}
+              {/* Yaw giroscopi */}
               <Line
                 type="monotone"
                 dataKey="yaw_raw"
@@ -142,8 +156,11 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
               <div className="bg-blue-50 dark:bg-blue-950/40 rounded-lg p-2">
                 <p className="text-blue-400 font-medium mb-0.5">Pitch</p>
+                  <p className="font-mono text-violet-600 dark:text-violet-300">
+                  Acc.: {last.pitch_acc.toFixed(1)}°
+                </p>
                 <p className="font-mono text-blue-700 dark:text-blue-300">
-                  Brut: {last.pitch_raw.toFixed(1)}°
+                  Giroscopi: {last.pitch_raw.toFixed(1)}°
                 </p>
                 <p className="font-mono text-blue-900 dark:text-blue-100 font-bold">
                   Kalman: {last.pitch_kalman.toFixed(1)}°
@@ -152,7 +169,7 @@ export function KalmanFilterChart({ data }: KalmanFilterChartProps) {
               <div className="bg-orange-50 dark:bg-orange-950/40 rounded-lg p-2">
                 <p className="text-orange-400 font-medium mb-0.5">Yaw</p>
                 <p className="font-mono text-orange-700 dark:text-orange-300">
-                  Brut: {last.yaw_raw.toFixed(1)}°
+                  Giroscopi: {last.yaw_raw.toFixed(1)}°
                 </p>
                 <p className="font-mono text-orange-900 dark:text-orange-100 font-bold">
                   Kalman: {last.yaw_kalman.toFixed(1)}°

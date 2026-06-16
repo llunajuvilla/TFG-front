@@ -12,13 +12,14 @@ import { KalmanFilterChart } from "@/components/kalman-filter-chart"
 // ── Tipus per al gràfic de Kalman ──
 interface KalmanSample {
   time:         number;  // s
-  pitch_raw:    number;  // °
-  pitch_kalman: number;  // °
+  pitch_acc:    number;  // °  (acelerómetro, referencia)
+  pitch_raw:    number;  // ° (integración bruta del giroscopio)
+  pitch_kalman: number;  // ° (filtro de Kalman)
   yaw_raw:      number;  // °
   yaw_kalman:   number;  // °
 }
 
-const MAX_CHART_SAMPLES = 60  // últims 60 punts (~6 s a 10 Hz)
+const MAX_CHART_SAMPLES = 200  // últims 200 punts (~20 s a 10 Hz)
 
 export default function RobotDashboard() {
   const [isMounted, setIsMounted] = useState(false)
@@ -28,7 +29,7 @@ export default function RobotDashboard() {
   const [chartData, setChartData] = useState<KalmanSample[]>([])
   const chartTimeRef              = useRef<number | null>(null)  // timestamp del primer frame (ms)
 
-  const ESP32_IP = "192.168.1.15"
+  const ESP32_IP = "192.168.137.138"  // <-- CANVIA A LA TEVA IP LOCAL DEL ESP32
   const { isConnected, sensorData, robotMode, sendCommand } = useRobotWebSocket(ESP32_IP)
 
   // Sincronitza el mode local amb l'estat que confirma el robot
@@ -48,6 +49,7 @@ export default function RobotDashboard() {
     const tSec = parseFloat(((sensorData.timestamp - chartTimeRef.current) / 1000).toFixed(2))
     const sample: KalmanSample = {
       time:         tSec,
+      pitch_acc:    parseFloat(sensorData.pitch.acc.toFixed(2)),
       pitch_raw:    parseFloat(sensorData.pitch.gyro.toFixed(2)),
       pitch_kalman: parseFloat(sensorData.pitch.kalman.toFixed(2)),
       yaw_raw:      parseFloat(sensorData.yaw.gyro.toFixed(2)),
@@ -134,6 +136,7 @@ export default function RobotDashboard() {
               position={robotPosition}
               yawDeg={robotYaw}
               encoders={sensorData?.encoders}
+              ambient={sensorData?.ambient}
             />
           </div>
 

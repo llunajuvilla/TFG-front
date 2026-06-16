@@ -6,6 +6,7 @@ interface RobotMapProps {
   position?: { x: number; y: number }   // metres (de la odometria del robot)
   yawDeg?:   number                      // ° (yaw_kalman del robot)
   encoders?: { left: number; right: number }
+  ambient?:  { temperature: number; humidity: number }   // DHT11
 }
 
 const MAP_SIZE_M  = 3.0   // metres que representa cada meitat del mapa
@@ -15,6 +16,7 @@ export function RobotMap({
   position = { x: 0, y: 0 },
   yawDeg   = 0,
   encoders,
+  ambient,
 }: RobotMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const trailRef  = useRef<Array<{ x: number; y: number }>>([])
@@ -154,6 +156,16 @@ export function RobotMap({
           height={220}
           className="rounded-lg border border-gray-100 dark:border-gray-800"
         />
+        {ambient && (
+          <div className="flex flex-col gap-1 text-xs font-mono">
+            <span className="text-gray-600 dark:text-gray-300">
+              Temperatura: <span className="font-bold">{ambient.temperature.toFixed(1)} °C</span>
+            </span>
+            <span className="text-gray-600 dark:text-gray-300">
+              Humitat: <span className="font-bold">{ambient.humidity.toFixed(0)} %</span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

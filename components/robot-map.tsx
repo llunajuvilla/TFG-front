@@ -7,6 +7,7 @@ interface RobotMapProps {
   yawDeg?:   number                      // ° (yaw_kalman del robot)
   encoders?: { left: number; right: number }
   ambient?:  { temperature: number; humidity: number }   // DHT11
+  obstacles?: { front: number; left: number; right: number }   // cm (ultrasònics)
 }
 
 const MAP_SIZE_M  = 3.0   // metres que representa cada meitat del mapa
@@ -17,6 +18,7 @@ export function RobotMap({
   yawDeg   = 0,
   encoders,
   ambient,
+  obstacles,
 }: RobotMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const trailRef  = useRef<Array<{ x: number; y: number }>>([])
@@ -125,6 +127,44 @@ export function RobotMap({
 
     ctx.restore()
 
+    // ── Obstacles (ultrasònics) ──
+    // Dibuixem un raig per sensor, només si detecta alguna cosa a prop.
+    const OBSTACLE_LLINDAR_CM = 100   // només mostrem si < 100 cm
+    if (obstacles) {
+      // Cada sensor: angle relatiu al robot (frontal=0°, esquerra=+90°, dreta=-90°)
+      const sensors = [
+        { dist: obstacles.front, angleOffset: 0 },
+        { dist: obstacles.left,  angleOffset: Math.PI / 2 },
+        { dist: obstacles.right, angleOffset: -Math.PI / 2 },
+      ]
+
+      for (const s of sensors) {
+        if (s.dist <= 0 || s.dist >= OBSTACLE_LLINDAR_CM) continue  // res a prop → no dibuixem
+
+        const distM = s.dist / 100                      // cm → m
+        // Direcció del raig al món: orientació del robot + offset del sensor
+        const ang = yawRad + s.angleOffset
+        // El robot "mira" cap a +Y; calculem el punt final del raig
+        const ox = position.x + distM * Math.sin(ang)
+        const oy = position.y + distM * Math.cos(ang)
+        const end = toCanvas(ox, oy)
+
+        // Raig (línia des del robot fins a l'obstacle)
+        ctx.beginPath()
+        ctx.strokeStyle = "#ef4444"
+        ctx.lineWidth   = 1.5
+        ctx.moveTo(px, py)
+        ctx.lineTo(end.px, end.py)
+        ctx.stroke()
+
+        // Marca a l'extrem (punt de l'obstacle)
+        ctx.beginPath()
+        ctx.fillStyle = "#dc2626"
+        ctx.arc(end.px, end.py, 3, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+
     // ── Coordenades actuals ──
     ctx.fillStyle = "#6b7280"
     ctx.font      = "10px monospace"
@@ -132,7 +172,7 @@ export function RobotMap({
     ctx.fillText(`x: ${position.x.toFixed(2)} m`, 6, H - 22)
     ctx.fillText(`y: ${position.y.toFixed(2)} m`, 6, H - 10)
 
-  }, [position, yawDeg])
+  }, [position, yawDeg, obstacles])
 
   return (
     <div className="h-full rounded-xl border bg-white dark:bg-gray-950 dark:border-gray-800 shadow-sm">

@@ -29,7 +29,7 @@ export default function RobotDashboard() {
   const [chartData, setChartData] = useState<KalmanSample[]>([])
   const chartTimeRef              = useRef<number | null>(null)  // timestamp del primer frame (ms)
 
-  const ESP32_IP = "192.168.137.138"  // <-- CANVIA A LA TEVA IP LOCAL DEL ESP32
+  const ESP32_IP = "192.168.137.224"  // <-- CANVIA A LA TEVA IP LOCAL DEL ESP32
   const { isConnected, sensorData, robotMode, sendCommand } = useRobotWebSocket(ESP32_IP)
 
   // Sincronitza el mode local amb l'estat que confirma el robot
@@ -60,7 +60,6 @@ export default function RobotDashboard() {
 
   // ── Canvi de mode ──
   const handleModeChange = (newMode: "manual" | "auto" | "return") => {
-    if (newMode === "return") return   // no implementat al firmware encara
     sendCommand({ cmd: "mode", value: newMode })
     setMessages(prev => [`Canviant mode a: ${newMode}`, ...prev.slice(0, 2)])
     // No actualitzem `mode` aquí; esperem la confirmació del robot via JSON
@@ -137,6 +136,7 @@ export default function RobotDashboard() {
               yawDeg={robotYaw}
               encoders={sensorData?.encoders}
               ambient={sensorData?.ambient}
+              obstacles={sensorData?.obstacles}
             />
           </div>
 

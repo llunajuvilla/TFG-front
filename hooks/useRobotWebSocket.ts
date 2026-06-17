@@ -25,7 +25,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 //  68      4    pos_x         (float, m)
 //  72      4    pos_y         (float, m)
 // ============================================================
-const FRAME_SIZE = 84;
+const FRAME_SIZE = 96;
 
 export interface SensorData {
   timestamp: number;
@@ -46,6 +46,7 @@ export interface SensorData {
   encoders: { left: number; right: number };  // polsos acumulats
   position: { x: number; y: number };         // metres
   ambient: { temperature: number; humidity: number };  // DHT11
+  obstacles: { front: number; left: number; right: number };  // cm (ultrasònics)
 }
 
 export function useRobotWebSocket(ipAddress: string) {
@@ -116,6 +117,11 @@ export function useRobotWebSocket(ipAddress: string) {
           ambient: {
             temperature: v.getFloat32(76, true),
             humidity:    v.getFloat32(80, true),
+          },
+          obstacles: {
+            front: v.getInt32(84, true),
+            left:  v.getInt32(88, true),
+            right: v.getInt32(92, true),
           },
         });
         return;

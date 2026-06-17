@@ -2,7 +2,7 @@
 
 Interfaz para controlar y analizar los datos del robot
 
-## 🚀 Requisitos Previos
+## Requisitos Previos
 
 Para ejecutar este proyecto, necesitas tener instalado **Node.js** en tu sistema.
 
@@ -19,7 +19,7 @@ Para ejecutar este proyecto, necesitas tener instalado **Node.js** en tu sistema
      ```
    - Si todo está correcto, deberías ver los números de versión de Node y npm.
 
-## 🛠️ Instalación del Proyecto
+## Instalación del Proyecto
 
 Sigue estos pasos para configurar el entorno de desarrollo:
 
